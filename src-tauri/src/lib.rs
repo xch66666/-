@@ -1,5 +1,6 @@
-pub mod db;
+pub mod ai;
 pub mod commands;
+pub mod db;
 
 use tauri::Manager;
 use db::Database;

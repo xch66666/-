@@ -1,7 +1,8 @@
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, State};
 
 use crate::db::Database;
-use crate::db::models::{Session, Message, CreateSession, CreateMessage};
+use crate::db::models::{Session, Message, CreateSession};
+use crate::ai;
 use super::AppError;
 
 /// 创建新对话
@@ -36,7 +37,7 @@ pub fn chat_get_messages(
     Ok(messages)
 }
 
-/// 发送消息（先保存到数据库，后续集成 AI 回复）
+/// 发送消息（调用 AI 流式回复）
 #[tauri::command]
 pub async fn chat_send(
     app: AppHandle,
@@ -44,38 +45,48 @@ pub async fn chat_send(
     session_id: String,
     content: String,
 ) -> Result<Message, AppError> {
-    // 保存用户消息
-    let user_msg = db.create_message(&CreateMessage {
-        session_id: session_id.clone(),
-        role: "user".to_string(),
-        content,
-        model: None,
-        tokens_used: None,
-        metadata: None,
+    // 1. 加载 LLM 配置
+    let llm_config = {
+        let config_entry = db.get_config("llm").map_err(AppError::from)?;
+        match config_entry {
+            Some(entry) => {
+                let parsed: ai::LlmConfig = serde_json::from_str(&entry.value)
+                    .unwrap_or_default();
+                parsed
+            }
+            None => ai::LlmConfig::default(),
+        }
+    };
+
+    // 2. 加载人设配置
+    let persona_json = {
+        let config_entry = db.get_config("persona").map_err(AppError::from)?;
+        config_entry.map(|e| e.value).unwrap_or_else(|| {
+            r#"{"name":"小伴","personality":"温柔体贴","style":"口语化","nickname":"你"}"#.to_string()
+        })
+    };
+
+    // 3. 加载相关记忆
+    let memories = db.search_memories(&content, 10).unwrap_or_default();
+    let memories_json = serde_json::to_string(&memories).unwrap_or_else(|_| "[]".to_string());
+
+    // 4. 构建系统提示
+    let system_prompt = ai::context::build_persona_prompt(&persona_json, &memories_json);
+
+    // 5. 调用 AI 流式回复
+    let ai_msg = ai::send_and_stream(
+        &app,
+        &db,
+        &session_id,
+        &content,
+        &system_prompt,
+        &llm_config,
+    )
+    .await
+    .map_err(|e| AppError {
+        code: "LLM_API_ERROR".to_string(),
+        message: e,
     })?;
-
-    // TODO: 调用 AI API 获取回复并流式推送
-    // 这里先返回一个占位回复
-    let placeholder = format!("[AI 回复功能待集成] 你说的是: {}", user_msg.content);
-
-    let _ = app.emit("chat:stream_chunk", serde_json::json!({
-        "session_id": session_id,
-        "chunk": placeholder,
-    }));
-
-    let ai_msg = db.create_message(&CreateMessage {
-        session_id,
-        role: "assistant".to_string(),
-        content: placeholder,
-        model: Some("placeholder".to_string()),
-        tokens_used: None,
-        metadata: None,
-    })?;
-
-    let _ = app.emit("chat:stream_done", serde_json::json!({
-        "session_id": ai_msg.session_id,
-        "message_id": ai_msg.id,
-    }));
 
     Ok(ai_msg)
 }
