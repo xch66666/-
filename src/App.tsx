@@ -1,14 +1,43 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useChat } from "./hooks/useChat";
 import { ChatPanel } from "./components/chat/ChatPanel";
 import { SettingsPanel } from "./components/settings/SettingsPanel";
 import { TitleBar } from "./components/common/TitleBar";
+import { Live2DView, type CompanionState } from "./components/live2d/Live2DView";
+import { BubbleMessage } from "./components/live2d/BubbleMessage";
 
 type View = "companion" | "chat" | "settings";
 
+// 随机问候语
+const GREETINGS = [
+  "今天过得怎么样？ ✨",
+  "嘿，在忙什么呢？",
+  "记得休息一下哦~ ☕",
+  "好久没聊天了，想你了 💕",
+  "有什么开心事分享吗？",
+  "需要我帮忙吗？ 😊",
+];
+
 function App() {
   const [view, setView] = useState<View>("companion");
+  const [companionState, setCompanionState] = useState<CompanionState>("idle");
+  const [bubbleText, setBubbleText] = useState(
+    GREETINGS[Math.floor(Math.random() * GREETINGS.length)]!
+  );
   const chat = useChat();
+
+  const handleSendMessage = useCallback(
+    async (content: string) => {
+      setCompanionState("thinking");
+      setBubbleText("");
+      await chat.sendMessage(content);
+      setCompanionState("idle");
+    },
+    [chat]
+  );
+
+  // 流式输出时显示 speaking 状态
+  const effectiveState = chat.streamingText ? "speaking" : companionState;
 
   return (
     <div className="h-screen w-screen flex flex-col bg-transparent overflow-hidden">
@@ -17,23 +46,36 @@ function App() {
 
       {/* 主内容区 */}
       <div className="flex-1 relative overflow-hidden">
-        {/* 陪伴模式（默认）：Live2D 角色区域 */}
+        {/* 陪伴模式：Live2D 角色 + 气泡 */}
         {view === "companion" && (
-          <div className="h-full flex flex-col items-center justify-center">
-            {/* Live2D 占位（后续集成 PixiJS） */}
-            <div className="text-center">
-              <span className="text-6xl block mb-2 animate-bounce">🐾</span>
-              <p className="text-sm text-gray-500 bg-white/70 px-3 py-1 rounded-full">
-                小伴在这里~
-              </p>
-            </div>
+          <div className="h-full relative flex flex-col items-center justify-center">
+            {/* Live2D 模型渲染 */}
+            <Live2DView
+              state={effectiveState}
+              width={300}
+              height={350}
+            />
 
-            {/* 气泡消息占位 */}
-            <div className="mt-4 bg-white/90 rounded-2xl px-4 py-2 shadow-sm border border-gray-100 max-w-[200px]">
-              <p className="text-xs text-gray-600 text-center">
-                今天过得怎么样？ ✨
-              </p>
-            </div>
+            {/* 气泡消息 */}
+            <BubbleMessage
+              text={bubbleText}
+              autoHide={10000}
+              onHide={() => {
+                // 随机显示新问候
+                setTimeout(() => {
+                  const msg = GREETINGS[Math.floor(Math.random() * GREETINGS.length)]!;
+                  setBubbleText(msg);
+                }, 30000 + Math.random() * 60000); // 30-90 秒后出现
+              }}
+            />
+
+            {/* 点击角色打开对话 */}
+            <button
+              onClick={() => setView("chat")}
+              className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/80 backdrop-blur-sm rounded-full px-4 py-1.5 text-xs text-gray-500 hover:bg-white hover:text-gray-700 transition shadow-sm border border-gray-100"
+            >
+              💬 聊天
+            </button>
           </div>
         )}
 
@@ -44,7 +86,7 @@ function App() {
             messages={chat.messages}
             streamingText={chat.streamingText}
             isLoading={chat.isLoading}
-            onSend={chat.sendMessage}
+            onSend={handleSendMessage}
             onNewSession={chat.createNewSession}
             onClose={() => setView("companion")}
           />
@@ -72,7 +114,10 @@ function App() {
           </svg>
         </button>
         <button
-          onClick={() => setView("chat")}
+          onClick={() => {
+            setView("chat");
+            if (!chat.currentSession) chat.createNewSession();
+          }}
           className={`p-2 rounded-xl transition ${
             view === "chat"
               ? "bg-indigo-100 text-indigo-600"
