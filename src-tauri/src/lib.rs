@@ -1,6 +1,7 @@
 pub mod ai;
 pub mod commands;
 pub mod db;
+pub mod memory;
 
 use tauri::Manager;
 use db::Database;
@@ -55,6 +56,7 @@ pub fn run() {
             commands::memory::memory_update,
             commands::memory::memory_delete,
             commands::memory::memory_stats,
+            commands::memory::memory_extract,
             // 配置模块
             commands::config::config_get,
             commands::config::config_get_all,

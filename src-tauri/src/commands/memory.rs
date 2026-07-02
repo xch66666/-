@@ -2,6 +2,8 @@ use tauri::State;
 
 use crate::db::Database;
 use crate::db::models::{Memory, UpdateMemory};
+use crate::memory::MemoryManager;
+use crate::ai::LlmConfig;
 use super::AppError;
 
 /// 获取记忆列表
@@ -65,5 +67,34 @@ pub fn memory_stats(
     Ok(serde_json::json!({
         "total": total,
         "category_count": categories,
+    }))
+}
+
+/// 从会话中提取记忆
+#[tauri::command]
+pub async fn memory_extract(
+    db: State<'_, Database>,
+    session_id: String,
+) -> Result<serde_json::Value, AppError> {
+    // 加载 LLM 配置
+    let llm_config = {
+        let config_entry = db.get_config("llm").map_err(AppError::from)?;
+        match config_entry {
+            Some(entry) => serde_json::from_str::<LlmConfig>(&entry.value).unwrap_or_default(),
+            None => LlmConfig::default(),
+        }
+    };
+
+    let manager = MemoryManager::new(&db);
+    let count = manager
+        .extract_from_session(&session_id, &llm_config)
+        .await
+        .map_err(|e| AppError {
+            code: "MEMORY_EXTRACT_ERROR".to_string(),
+            message: e,
+        })?;
+
+    Ok(serde_json::json!({
+        "extracted": count,
     }))
 }
