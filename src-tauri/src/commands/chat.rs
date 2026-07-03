@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use tauri::{AppHandle, State};
 
 use crate::db::Database;
@@ -8,7 +9,7 @@ use super::AppError;
 /// 创建新对话
 #[tauri::command]
 pub fn chat_create_session(
-    db: State<'_, Database>,
+    db: State<'_, Arc<Database>>,
     title: Option<String>,
 ) -> Result<Session, AppError> {
     let data = CreateSession { title };
@@ -19,7 +20,7 @@ pub fn chat_create_session(
 /// 获取会话列表
 #[tauri::command]
 pub fn chat_list_sessions(
-    db: State<'_, Database>,
+    db: State<'_, Arc<Database>>,
     include_archived: Option<bool>,
 ) -> Result<Vec<Session>, AppError> {
     let sessions = db.list_sessions(include_archived.unwrap_or(false))?;
@@ -29,7 +30,7 @@ pub fn chat_list_sessions(
 /// 获取会话消息
 #[tauri::command]
 pub fn chat_get_messages(
-    db: State<'_, Database>,
+    db: State<'_, Arc<Database>>,
     session_id: String,
     limit: Option<i32>,
 ) -> Result<Vec<Message>, AppError> {
@@ -41,7 +42,7 @@ pub fn chat_get_messages(
 #[tauri::command]
 pub async fn chat_send(
     app: AppHandle,
-    db: State<'_, Database>,
+    db: State<'_, Arc<Database>>,
     session_id: String,
     content: String,
 ) -> Result<Message, AppError> {
@@ -94,7 +95,7 @@ pub async fn chat_send(
 /// 删除会话
 #[tauri::command]
 pub fn chat_delete_session(
-    db: State<'_, Database>,
+    db: State<'_, Arc<Database>>,
     session_id: String,
 ) -> Result<(), AppError> {
     db.delete_session(&session_id)?;
@@ -104,7 +105,7 @@ pub fn chat_delete_session(
 /// 归档会话
 #[tauri::command]
 pub fn chat_archive_session(
-    db: State<'_, Database>,
+    db: State<'_, Arc<Database>>,
     session_id: String,
 ) -> Result<(), AppError> {
     db.archive_session(&session_id)?;

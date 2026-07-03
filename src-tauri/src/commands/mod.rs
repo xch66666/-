@@ -1,3 +1,4 @@
+pub mod activity;
 pub mod chat;
 pub mod memory;
 pub mod config;

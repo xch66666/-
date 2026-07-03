@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::db::Database;
@@ -7,7 +8,7 @@ use super::AppError;
 /// 获取配置项
 #[tauri::command]
 pub fn config_get(
-    db: State<'_, Database>,
+    db: State<'_, Arc<Database>>,
     key: String,
 ) -> Result<Option<ConfigEntry>, AppError> {
     let entry = db.get_config(&key)?;
@@ -17,7 +18,7 @@ pub fn config_get(
 /// 获取所有配置
 #[tauri::command]
 pub fn config_get_all(
-    db: State<'_, Database>,
+    db: State<'_, Arc<Database>>,
 ) -> Result<Vec<ConfigEntry>, AppError> {
     let configs = db.get_all_configs()?;
     Ok(configs)
@@ -27,7 +28,7 @@ pub fn config_get_all(
 #[tauri::command]
 pub async fn config_set(
     app: AppHandle,
-    db: State<'_, Database>,
+    db: State<'_, Arc<Database>>,
     key: String,
     value: String,
 ) -> Result<(), AppError> {

@@ -1,10 +1,12 @@
+pub mod activity;
 pub mod ai;
 pub mod commands;
 pub mod db;
 pub mod memory;
 
+use std::sync::Arc;
+
 use tauri::Manager;
-use db::Database;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -37,8 +39,16 @@ pub fn run() {
 
             tracing::info!("数据库初始化完成: {}", db_path);
 
-            // 注册数据库到 Tauri 状态管理
-            app.manage(database);
+            // 包裹 Arc 以便后台任务和命令共享
+            let db = Arc::new(database);
+            app.manage(db.clone());
+
+            // 启动活动监控后台任务
+            let app_handle = app.handle().clone();
+            let db_for_monitor = db.clone();
+            tauri::async_runtime::spawn(async move {
+                activity::monitor::start_activity_monitor(app_handle, db_for_monitor).await;
+            });
 
             Ok(())
         })
@@ -61,7 +71,12 @@ pub fn run() {
             commands::config::config_get,
             commands::config::config_get_all,
             commands::config::config_set,
+            // 活动模块
+            commands::activity::activity_get_current,
+            commands::activity::activity_get_stats,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Companion 失败");
 }
+
+use db::Database;

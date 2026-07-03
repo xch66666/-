@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use tauri::State;
 
 use crate::db::Database;
@@ -9,7 +10,7 @@ use super::AppError;
 /// 获取记忆列表
 #[tauri::command]
 pub fn memory_list(
-    db: State<'_, Database>,
+    db: State<'_, Arc<Database>>,
     category: Option<String>,
 ) -> Result<Vec<Memory>, AppError> {
     let memories = db.list_memories(category.as_deref())?;
@@ -19,7 +20,7 @@ pub fn memory_list(
 /// 搜索记忆
 #[tauri::command]
 pub fn memory_search(
-    db: State<'_, Database>,
+    db: State<'_, Arc<Database>>,
     query: String,
     limit: Option<i32>,
 ) -> Result<Vec<Memory>, AppError> {
@@ -30,7 +31,7 @@ pub fn memory_search(
 /// 更新记忆
 #[tauri::command]
 pub fn memory_update(
-    db: State<'_, Database>,
+    db: State<'_, Arc<Database>>,
     id: String,
     content: Option<String>,
     category: Option<String>,
@@ -51,7 +52,7 @@ pub fn memory_update(
 /// 删除记忆
 #[tauri::command]
 pub fn memory_delete(
-    db: State<'_, Database>,
+    db: State<'_, Arc<Database>>,
     id: String,
 ) -> Result<(), AppError> {
     db.delete_memory(&id)?;
@@ -61,7 +62,7 @@ pub fn memory_delete(
 /// 记忆统计
 #[tauri::command]
 pub fn memory_stats(
-    db: State<'_, Database>,
+    db: State<'_, Arc<Database>>,
 ) -> Result<serde_json::Value, AppError> {
     let (total, categories) = db.memory_stats()?;
     Ok(serde_json::json!({
@@ -73,7 +74,7 @@ pub fn memory_stats(
 /// 从会话中提取记忆
 #[tauri::command]
 pub async fn memory_extract(
-    db: State<'_, Database>,
+    db: State<'_, Arc<Database>>,
     session_id: String,
 ) -> Result<serde_json::Value, AppError> {
     // 加载 LLM 配置
