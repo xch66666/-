@@ -22,6 +22,29 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     api_key: "",
     api_base: "",
   });
+
+  // 提供商预设
+  const PROVIDERS = [
+    { id: "openai" as const, name: "OpenAI (GPT)", base: "https://api.openai.com/v1", models: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"] },
+    { id: "deepseek" as const, name: "DeepSeek", base: "https://api.deepseek.com/v1", models: ["deepseek-chat", "deepseek-reasoner"] },
+    { id: "qwen" as const, name: "通义千问 (Qwen)", base: "https://dashscope.aliyuncs.com/compatible-mode/v1", models: ["qwen-turbo", "qwen-plus", "qwen-max", "qwen-long"] },
+    { id: "claude" as const, name: "Claude (Anthropic)", base: "https://api.anthropic.com/v1", models: ["claude-sonnet-4-20250514", "claude-3-5-haiku-20241022"] },
+    { id: "custom" as const, name: "自定义 (OpenAI 兼容)", base: "", models: [] },
+  ];
+
+  const currentProvider = PROVIDERS.find((p) => p.id === llm.provider) || PROVIDERS[4]!;
+
+  const handleProviderChange = (providerId: LlmConfig["provider"]) => {
+    const p = PROVIDERS.find((pr) => pr.id === providerId);
+    if (p) {
+      setLlm({
+        ...llm,
+        provider: providerId,
+        api_base: p.base,
+        model: p.models[0] || llm.model,
+      });
+    }
+  };
   const [saved, setSaved] = useState(false);
 
   // 加载配置
@@ -97,9 +120,40 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
         {activeTab === "llm" && (
           <>
-            <Field label="API Base URL" value={llm.api_base || ""} onChange={(v) => setLlm({ ...llm, api_base: v })} placeholder="https://api.openai.com/v1" />
+            {/* 提供商选择 */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">服务商</label>
+              <select
+                value={llm.provider}
+                onChange={(e) => handleProviderChange(e.target.value as LlmConfig["provider"])}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white/90"
+              >
+                {PROVIDERS.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* 模型选择 */}
+            {currentProvider.models.length > 0 ? (
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">模型</label>
+                <select
+                  value={llm.model}
+                  onChange={(e) => setLlm({ ...llm, model: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white/90"
+                >
+                  {currentProvider.models.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <Field label="模型名称" value={llm.model} onChange={(v) => setLlm({ ...llm, model: v })} placeholder="model-name" />
+            )}
+
+            <Field label="API Base URL" value={llm.api_base || ""} onChange={(v) => setLlm({ ...llm, api_base: v })} placeholder={currentProvider.base || "https://your-api.com/v1"} />
             <Field label="API Key" value={llm.api_key || ""} onChange={(v) => setLlm({ ...llm, api_key: v })} type="password" placeholder="sk-..." />
-            <Field label="模型" value={llm.model} onChange={(v) => setLlm({ ...llm, model: v })} placeholder="gpt-4o-mini" />
             <div>
               <label className="block text-xs text-gray-500 mb-1">Temperature: {llm.temperature}</label>
               <input

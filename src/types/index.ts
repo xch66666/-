@@ -75,7 +75,7 @@ export interface ProactiveConfig {
 }
 
 export interface LlmConfig {
-  provider: "openai" | "claude" | "custom";
+  provider: "openai" | "deepseek" | "qwen" | "claude" | "custom";
   model: string;
   max_context_messages: number;
   temperature: number;

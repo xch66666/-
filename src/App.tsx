@@ -51,8 +51,16 @@ function App() {
 
   const effectiveState = chat.streamingText ? "speaking" : companionState;
 
-  const togglePanel = (name: FloatingPanel) => {
-    setPanel((prev) => (prev === name ? null : name));
+  const togglePanel = async (name: FloatingPanel) => {
+    if (panel === name) {
+      setPanel(null);
+      return;
+    }
+    // 打开聊天时自动创建会话（如果没有）
+    if (name === "chat" && !chat.currentSession) {
+      await chat.createNewSession();
+    }
+    setPanel(name);
   };
 
   return (
@@ -111,7 +119,7 @@ function App() {
       {/* 浮窗：聊天面板 */}
       {panel === "chat" && (
         <div className="absolute inset-0 flex items-end justify-center pb-14 pointer-events-none">
-          <div className="pointer-events-auto w-[340px] max-h-[70vh] bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+          <div className="pointer-events-auto w-[340px] h-[70vh] overflow-hidden shadow-2xl rounded-2xl">
             <ChatPanel
               currentSession={chat.currentSession}
               messages={chat.messages}
@@ -128,7 +136,7 @@ function App() {
       {/* 浮窗：设置面板 */}
       {panel === "settings" && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="pointer-events-auto w-[340px] max-h-[70vh] bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+          <div className="pointer-events-auto w-[340px] h-[70vh] overflow-hidden shadow-2xl rounded-2xl">
             <SettingsPanel onClose={() => setPanel(null)} />
           </div>
         </div>
