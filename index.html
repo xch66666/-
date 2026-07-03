@@ -5,9 +5,51 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Companion</title>
+
+    <!-- WebGL 兼容补丁：必须在所有模块之前加载 -->
+    <!-- 修复 Tauri WebView2 下 PixiJS v6 checkMaxIfStatementsInShader 报错 -->
+    <script>
+      (function () {
+        var PATCHES = {
+          0x8dfb: 256, // MAX_VERTEX_UNIFORM_VECTORS
+          0x8dfd: 256, // MAX_FRAGMENT_UNIFORM_VECTORS
+          0x8dfc: 16,  // MAX_VARYING_VECTORS
+          0x8869: 16,  // MAX_VERTEX_ATTRIBS
+          0x8872: 16,  // MAX_TEXTURE_IMAGE_UNITS
+          0x8b4d: 32,  // MAX_COMBINED_TEXTURE_IMAGE_UNITS
+          0x8b4c: 16,  // MAX_VERTEX_TEXTURE_IMAGE_UNITS
+          0x0d33: 4096, // MAX_TEXTURE_SIZE
+          0x8b49: 8192, // MAX_VERTEX_UNIFORM_COMPONENTS
+          0x8b4a: 8192, // MAX_FRAGMENT_UNIFORM_COMPONENTS
+        };
+
+        function patch(proto) {
+          if (!proto || !proto.getParameter) return;
+          var orig = proto.getParameter;
+          proto.getParameter = function (pname) {
+            var v = orig.call(this, pname);
+            if (v === 0 && PATCHES[pname] !== undefined) {
+              console.log('[WebGL补丁] 0x' + pname.toString(16) + ' → ' + PATCHES[pname]);
+              return PATCHES[pname];
+            }
+            return v;
+          };
+        }
+
+        if (typeof WebGLRenderingContext !== 'undefined') {
+          patch(WebGLRenderingContext.prototype);
+          console.log('[WebGL补丁] ✅ WebGLRenderingContext 已补丁');
+        }
+        if (typeof WebGL2RenderingContext !== 'undefined') {
+          patch(WebGL2RenderingContext.prototype);
+          console.log('[WebGL补丁] ✅ WebGL2RenderingContext 已补丁');
+        }
+      })();
+    </script>
   </head>
   <body class="bg-transparent overflow-hidden">
     <div id="root"></div>
+    <script src="/vendor/live2dcubismcore.min.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
